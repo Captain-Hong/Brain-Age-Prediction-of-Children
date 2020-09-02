@@ -1,0 +1,502 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 29 16:55:24 2019
+
+@author: GreatHong
+"""
+
+
+"""
+Created on Mon Feb 25 22:00:24 2019
+
+@author: GreatHong
+"""
+
+import numpy as np
+import os
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+import matplotlib.pyplot as plt
+import math
+from sklearn import metrics
+
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels=12, out_channels=64, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn1=nn.BatchNorm2d(64)
+        self.active1=nn.ReLU()
+        self.pool1 = nn.MaxPool2d(kernel_size=(4, 4))
+
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn2=nn.BatchNorm2d(128)
+        self.active2=nn.ReLU()
+        self.conv22 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn22=nn.BatchNorm2d(128)
+        self.active22=nn.ReLU()
+        self.pool2=nn.MaxPool2d(kernel_size=(3, 3))
+
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn3=nn.BatchNorm2d(256)
+        self.active3=nn.ReLU()
+        self.pool3=nn.MaxPool2d(kernel_size=(3, 3))
+
+        self.conv4 = nn.Conv2d(in_channels=256, out_channels=512, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn4=nn.BatchNorm2d(512)
+        self.active4=nn.ReLU()
+        self.conv44 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn44=nn.BatchNorm2d(512)
+        self.active44=nn.ReLU()
+        self.conv444 = nn.Conv2d(in_channels=512, out_channels=512, kernel_size=(3, 3),stride=(1, 1), padding=(1, 1),)
+        self.bn444=nn.BatchNorm2d(512)
+        self.active444=nn.ReLU()
+        self.pool4=nn.MaxPool2d(kernel_size=(3, 3))
+
+        self.fc1 = nn.Linear(512* 1 * 1, 128)
+        self.active5=nn.ReLU()
+
+        self.fc2 = nn.Linear(128, 64)
+        self.active6=nn.ReLU()
+        
+        self.fc4 = nn.Linear(64, 1)
+
+    def forward(self, x):
+
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.active1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.active2(x)
+        x = self.conv22(x)
+        x = self.bn22(x)
+        x = self.active22(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.active3(x)
+        x = self.pool3(x)
+
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = self.active4(x)
+        x = self.conv44(x)
+        x = self.bn44(x)
+        x = self.active44(x)
+        x = self.conv444(x)
+        x = self.bn444(x)
+        x = self.active444(x)
+        x = self.pool4(x)
+
+        x = x.view(x.size(0), -1)
+        x=self.fc1(x)
+        x=self.active5(x)
+
+        x=self.fc2(x)
+        x=self.active6(x)
+        
+        output=self.fc4(x)
+        return output
+
+
+def computeCorrelation(X, Y):
+    xBar = np.mean(X)
+    yBar = np.mean(Y)
+    SSR = 0
+    varX = 0
+    varY = 0
+    for i in range(0, len(X)):
+        diffXXBar = X[i] - xBar
+        diffYYBar = Y[i] - yBar
+        SSR +=(diffXXBar * diffYYBar)
+        varX += diffXXBar**2
+        varY += diffYYBar**2
+    SST = math.sqrt(varX * varY)
+    return SSR/SST
+
+def rmse(y_test, y_pred):
+    return np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+
+def mae(y_test, y_pred):
+    mae=metrics.mean_absolute_error(y_test, y_pred)
+    return mae
+
+def Get_Average(list):
+   sum = 0
+   for item in list:
+      sum += item
+   return sum/len(list) 
+
+train_data_path='traindata.npy'
+train_label_path='trainlabel.npy'
+test_data_path='testdata.npy'
+test_label_path='testlabel.npy'
+for j in range(10):
+    print('**************loading data***************')
+
+    train_data1=np.load(train_data_path)
+    train_data=train_data1[:,0,:,:,:]
+    train_data=train_data.transpose(0,3,1,2)
+    train_label = np.load(train_label_path)
+    num=train_label.shape[0]
+    print('Training data size:',train_data.shape)
+    train_label = torch.from_numpy(train_label)
+    train_label = Variable(train_label).type(torch.FloatTensor)
+
+    train_data = torch.from_numpy(train_data)
+    train_data = Variable(train_data).type(torch.FloatTensor)
+    temppath_txt=(os.getcwd()+'\\'+'record.txt')
+    file=open(temppath_txt,'a+')
+    file.write('**************run '+ str(j+1) +' time***************')
+    file.write('\n')
+
+    print('*****************building network******************')
+    cnn = CNN()
+    cnn.cuda()
+
+    print('****************setting hyperparameters*****************')
+    EPOCH1 =40
+    trainloss=[]
+    All_avg_trainloss=[]
+    RMSE_test=[]
+    LR_record=[]
+    LR=0.0000008
+    Decay=0
+    BATCH_SIZE =64
+    loss_func = nn.MSELoss()
+    iternum = 0
+    print('**************begin training***************')
+    print('**************run '+ str(j+1) +' time***************')
+
+    for epoch in range(EPOCH1):
+        
+#        if (epoch <= 9):  #warmup
+#            LR =LR+0.00000008
+#        elif (epoch==9):
+#            LR = 0.0000008
+        
+        if (epoch > 0):
+            Decay=0.9
+            LR = LR * Decay
+        else:
+            LR=LR
+
+        trainloss1=[]
+        optimizer = torch.optim.SGD(cnn.parameters(), lr=LR, momentum=0.9)
+        ran=int((num)/BATCH_SIZE)
+        for step in range(ran):
+            cnn.train()
+            iternum = iternum + 1
+            b_x = train_data[step * BATCH_SIZE:(step + 1) * BATCH_SIZE, :, :, :].cuda()
+            b_y = train_label[step * BATCH_SIZE:(step + 1) * BATCH_SIZE].cuda()
+            output = cnn(b_x)
+            loss = loss_func(output, b_y)
+            trainloss.append(loss.data.cpu().numpy())
+            trainloss1.append(loss.data.cpu().numpy())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            cnn.eval()
+
+        if num % BATCH_SIZE != 0:
+            cnn.train()
+            iternum = iternum + 1
+            b_x = train_data[ran * BATCH_SIZE:, :, :, :].cuda()
+            b_y = train_label[ran * BATCH_SIZE:].cuda()
+            output = cnn(b_x)
+            loss = loss_func(output, b_y)
+            trainloss.append(loss.data.cpu().numpy())
+            trainloss1.append(loss.data.cpu().numpy())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            cnn.eval()
+        
+        traininglosstemp = []
+        for k in trainloss1:
+            traininglosstemp.append(k.tolist())
+
+        Avg_trainingloss=Get_Average(traininglosstemp)
+        All_avg_trainloss.append(Avg_trainingloss)
+        LR_record.append(LR)
+        print('|Epoch: ', epoch+1, '|BATCH_SIZE: ', BATCH_SIZE,'|Decay: ', Decay,'|Learning_Rate: ', LR, '| Avg_trainloss: %.4f' % Avg_trainingloss)
+        file.write('|Epoch '+str(epoch+1)+'|BATCH_SIZE '+str(BATCH_SIZE)+'| Avg_trainloss '+ str(Avg_trainingloss))
+        file.write('\n')
+        
+        pred_y=[]
+        test_data1=np.load(test_data_path)
+        test_data=test_data1[:,0,:,:,:]
+        test_data=test_data.transpose(0,3,1,2)
+        test_label = np.load(test_label_path)
+        lenth=test_label.shape[0]
+        halflen=int(lenth/2)
+
+        for k in range(halflen):
+            temp_data=test_data[k*2:(k+1)*2,:,:,:]
+            temp_data = torch.from_numpy(temp_data)
+            temp_data = Variable(temp_data).type(torch.FloatTensor).cuda() 
+            temp_output = cnn(temp_data)
+            pred_temp = temp_output.cpu().detach().numpy().tolist() 
+            pred_y = pred_y + pred_temp
+
+        if lenth % 2 != 0:
+            temp_data=test_data[halflen*2:,:,:,:]
+            temp_data = torch.from_numpy(temp_data)
+            temp_data = Variable(temp_data).type(torch.FloatTensor).cuda() 
+            temp_output = cnn(temp_data)
+            pred_temp = temp_output.cpu().detach().numpy().tolist() 
+            pred_y = pred_y + pred_temp
+        
+        pred_y=np.array(pred_y)
+        R=computeCorrelation(pred_y, test_label[:,0].tolist())
+        rmse1=rmse(pred_y, test_label[:,0].tolist())
+        RMSE_test.append(rmse1)
+        print('Test data: | Correlation: ', R,'| coefficient of determination: ', R**2,'| Root mean square error: ', rmse1)
+        file.write('Test data: | Correlation '+str(R)+'| coefficient of determination '+str(R**2)+'| Root mean square error '+ str(rmse1))
+        file.write('\n')
+        
+    print('**************plotting training process***************')
+    trainingloss = []
+    for k in trainloss:
+        trainingloss.append(k.tolist())
+    a = range(1, 1+iternum)
+    plt.figure(1)
+    plt.ion()
+    plt.cla()
+    plt.plot(a, trainingloss, 'b-')
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+            'weight' : 'normal',
+            'size' : 20,
+            }
+    plt.xlabel("Iteration",font2)
+    plt.ylabel("Training loss",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+    
+    b = range(1, 1+EPOCH1)
+    plt.figure(2)
+    plt.ion()
+    plt.cla()
+    plt.plot(b, All_avg_trainloss, 'b-')
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+        'weight' : 'normal',
+        'size' : 20,
+        }
+    plt.xlabel("Epoch",font2)
+    plt.ylabel("Average training loss",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+
+    c = range(1, 1+EPOCH1)
+    plt.figure(3)
+    plt.ion()
+    plt.cla()
+    plt.plot(c, RMSE_test, 'b-')
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+        'weight' : 'normal',
+        'size' : 20,
+        }
+    plt.xlabel("Epoch",font2)
+    plt.ylabel("RMSE of predictions on test",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+    
+    d = range(1, 1+EPOCH1)
+    plt.figure(4)
+    plt.ion()
+    plt.cla()
+    plt.plot(d, LR_record, 'b-')
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+        'weight' : 'normal',
+        'size' : 20,
+        }
+    plt.xlabel("Epoch",font2)
+    plt.ylabel("Learning rate",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+    
+    print('**************evaluating training***************')
+    pred_x=[]
+    train_data1=np.load(train_data_path)
+    train_data=train_data1[:,0,:,:,:]
+    train_data=train_data.transpose(0,3,1,2)
+    train_label = np.load(train_label_path)
+    num=train_label.shape[0]
+    halflen=int(num/2)
+    for k in range(halflen):
+        temp_data=train_data[k*2:(k+1)*2,:,:,:]
+        temp_data = torch.from_numpy(temp_data)
+        temp_data = Variable(temp_data).type(torch.FloatTensor).cuda()
+        temp_output = cnn(temp_data)
+        pred_temp = temp_output.cpu().detach().numpy().tolist()
+        pred_x = pred_x + pred_temp
+
+    if num % 2 != 0:
+        temp_data=train_data[halflen*2:,:,:,:]
+        temp_data = torch.from_numpy(temp_data)
+        temp_data = Variable(temp_data).type(torch.FloatTensor).cuda()
+        temp_output = cnn(temp_data)
+        pred_temp = temp_output.cpu().detach().numpy().tolist()
+        pred_x = pred_x + pred_temp
+
+    pred_x=np.array(pred_x)
+
+    R=computeCorrelation(pred_x, train_label[:,0].tolist())
+    rmse1=rmse(pred_x, train_label[:,0].tolist())
+    mae1=mae(pred_x, train_label[:,0].tolist())
+    print('Train data: | Correlation: ', R,'| MAE: ', mae1,'| Root mean square error: ', rmse1)
+    file.write('Train data: | Correlation: '+str(R)+'| coefficient of determination: '+str(R**2)+'| Root mean square error: '+ str(rmse1))
+    file.write('\n')
+
+    print('**************plotting train***************')
+    nu = range(1, 1+len(pred_x))
+    plt.figure(5)
+    plt.ion()  
+    plt.cla()
+    plt.plot(nu, pred_x, 'r-', label='Fitted', lw=0.5)
+    plt.plot(nu, train_label[:,0].tolist(), 'b-', label='Actual', lw=0.5)
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+            'weight' : 'normal',
+            'size' : 20,
+            }
+    plt.xlabel("Training sample",font2)
+    plt.ylabel("Age(day)",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+
+    print('**************testing process***************')
+    pred_y=[]
+    test_data1=np.load(test_data_path)
+    test_data=test_data1[:,0,:,:,:]
+    test_data=test_data.transpose(0,3,1,2)
+    test_label = np.load(test_label_path)
+    lenth=test_label.shape[0]
+    halflen=int(lenth/2)
+
+    for k in range(halflen):
+        temp_data=test_data[k*2:(k+1)*2,:,:,:]
+        temp_data = torch.from_numpy(temp_data)
+        temp_data = Variable(temp_data).type(torch.FloatTensor).cuda()
+        temp_output = cnn(temp_data)
+        pred_temp = temp_output.cpu().detach().numpy().tolist() 
+        pred_y = pred_y + pred_temp
+
+    if lenth % 2 != 0:
+        temp_data=test_data[halflen*2:,:,:,:]
+        temp_data = torch.from_numpy(temp_data)
+        temp_data = Variable(temp_data).type(torch.FloatTensor).cuda() 
+        temp_output = cnn(temp_data)
+        pred_temp = temp_output.cpu().detach().numpy().tolist() 
+        pred_y = pred_y + pred_temp
+    
+    pred_y=np.array(pred_y)
+    R=computeCorrelation(pred_y, test_label[:,0].tolist())
+    rmse1=rmse(pred_y, test_label[:,0].tolist())
+    mae1=mae(pred_y, test_label[:,0].tolist())
+    print('Test data: | Correlation: ', R,'| MAE: ', mae1,'| Root mean square error: ', rmse1)
+    file.write('Test data: | Correlation: '+str(R)+'| coefficient of determination: '+str(R**2)+'| Root mean square error: '+ str(rmse1))
+    file.write('\n')
+
+    temppath_txt1=(os.getcwd()+'\\'+'Predicted'+str(j+1)+'.txt')
+    file1=open(temppath_txt1,'w+')
+    for tt in range(lenth):
+        file1.write(str(pred_y[tt][0]))
+        file1.write('\n')
+    file1.close()
+    
+    print('**************plotting test***************')
+    nu = range(1, 1+len(pred_y))
+    R2=R**2
+    R2=R2[0]
+    R2=round(R2, 3)
+    rmse1=round(rmse1, 2)
+    plt.figure(6)
+    plt.ion() 
+    plt.cla()
+    plt.scatter(nu, pred_y,c = 'r',marker = 's',label='Prediction', lw=0.5)
+    plt.scatter(nu, test_label[:,0].tolist(),c = 'b',marker = 'o',label='Actual', lw=0.5)
+    plt.hlines(365, -10, 260,linewidth=2,color='#32CD32',linestyles = "dashed",label='One-year old')#横线
+    plt.hlines(730, -10, 260,linewidth=2,color='#8A2BE2',linestyles = "dashed",label='Two-year old')#横线
+    plt.xlim(0,50)
+    plt.legend(loc='upper right')
+    font2 = {'family' : 'Times New Roman',
+        'weight' : 'normal',
+        'size' : 20,
+        }
+    plt.title('${R^2}$ = '+str(R2)+'; ${RMSE}$ = '+str(rmse1),font2)
+    plt.xlabel("Test sample",font2)
+    plt.ylabel("Age(day)",font2)
+    plt.ioff()
+    plt.draw()
+    plt.show()
+    
+    print('**************subsection assessment***************')
+    Oneyear_actual=[]
+    Oneyear_predict=[]
+
+    for ii in range(lenth):
+        if (test_label[ii,0] <=365):
+            Oneyear_actual.append(test_label[ii,0].tolist())
+            Oneyear_predict.append(pred_y[ii])
+#        elif (test_label[ii,0] >365 and test_label[ii,0] <=730):
+#            Twoyear_actual.append(test_label[ii,0].tolist())
+#            Twoyear_predict.append(pred_y[ii])
+#        else:
+#            Older_actual.append(test_label[ii,0].tolist())
+#            Older_predict.append(pred_y[ii])
+    lenth1=len(Oneyear_actual)
+    R1=computeCorrelation(Oneyear_actual, Oneyear_predict)
+    rmse1=rmse(Oneyear_actual, Oneyear_predict)
+    mae1=mae(Oneyear_actual, Oneyear_predict)
+    print('One-year old('+str(lenth1)+' samples): | Correlation: ', R1,'| MAE: ', mae1,'| Root mean square error: ', rmse1)
+#    file.write('One-year old('+str(lenth1+1)+' samples): | Correlation: '+str(R1)+'| coefficient of determination: '+str(R1**2)+'| Root mean square error: '+ str(rmse1))
+#    file.write('\n')
+
+    Twoyear_actual=[]
+    Twoyear_predict=[]
+    for ii in range(lenth):
+        if (test_label[ii,0] <=730):
+            Twoyear_actual.append(test_label[ii,0].tolist())
+            Twoyear_predict.append(pred_y[ii])
+
+    lenth2=len(Twoyear_actual)
+    R2=computeCorrelation(Twoyear_actual, Twoyear_predict)
+    rmse2=rmse(Twoyear_actual, Twoyear_predict)
+    mae2=mae(Twoyear_actual, Twoyear_predict)
+    print('Two-year old('+str(lenth2)+' samples): | Correlation: ', R2,'| MAE: ', mae2,'| Root mean square error: ', rmse2)
+#    file.write('Two-year old('+str(lenth2)+' samples): | Correlation: '+str(R2)+'| coefficient of determination: '+str(R2**2)+'| Root mean square error: '+ str(rmse2))
+#    file.write('\n')
+    Older_actual=[]
+    Older_predict=[]
+    for ii in range(lenth):
+        if (test_label[ii,0] >=0):
+            Older_actual.append(test_label[ii,0].tolist())
+            Older_predict.append(pred_y[ii])
+
+    lenth3=len(Older_actual)    
+    R3=computeCorrelation(Older_actual, Older_predict)
+    rmse3=rmse(Older_actual, Older_predict)
+    mae3=mae(Older_actual, Older_predict)
+    print('Older('+str(lenth3)+' samples): | Correlation: ', R3,'| MAE: ', mae3,'| Root mean square error: ', rmse3)
+#    file.write('Older('+str(lenth3)+' samples): | Correlation: '+str(R3)+'| coefficient of determination: '+str(R3**2)+'| Root mean square error: '+ str(rmse3))
+#    file.write('\n')
+#    file.close()
+
+    torch.cuda.empty_cache()
+
+#os.system('shutdown -s -f -t 2')
